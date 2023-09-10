@@ -1,0 +1,19 @@
+{
+    "name": "ilgazil/lib-download",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "Ilgazil\\LibDownload\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Thomas Vivien",
+            "email": "thomas+github@vivien.cloud"
+        }
+    ],
+    "require": {
+        "anlutro/curl": "^1.5",
+        "paquettg/php-html-parser": "^3.1"
+    }
+}
