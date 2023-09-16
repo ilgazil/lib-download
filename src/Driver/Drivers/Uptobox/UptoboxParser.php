@@ -1,11 +1,11 @@
 <?php
 
-namespace Downloads\Driver\Drivers;
+namespace Downloads\Driver\Drivers\Uptobox;
 
 use PHPHtmlParser\Dom;
 
 // @todo cache infos
-class UpToBoxParser
+class UptoboxParser
 {
     protected Dom $dom;
 

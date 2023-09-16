@@ -1,6 +1,6 @@
 <?php
 
-namespace Downloads\Driver\Drivers;
+namespace Downloads\Driver\Drivers\Uptobox;
 
 use anlutro\cURL\cURL;
 use Downloads\Exceptions\DriverExceptions\AuthException;
@@ -18,7 +18,7 @@ use PHPHtmlParser\Exceptions\LogicalException;
 use PHPHtmlParser\Exceptions\NotLoadedException;
 use PHPHtmlParser\Exceptions\StrictException;
 
-class UpToBoxDriver extends DriverInterface
+class UptoboxDriver extends DriverInterface
 {
     static private string $ROOT_URL = 'https://uptobox.com/';
 
@@ -28,7 +28,7 @@ class UpToBoxDriver extends DriverInterface
 
     public function getName(): string
     {
-        return 'UpToBox';
+        return 'uptobox';
     }
 
     /**
