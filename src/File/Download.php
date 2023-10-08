@@ -1,10 +1,10 @@
 <?php
 
-namespace Downloads\File;
+namespace Ilgazil\LibDownload\File;
 
 use anlutro\cURL\cURL;
-use Downloads\Exceptions\FileExceptions\DownloadException;
-use Downloads\Driver\DriverInterface;
+use Ilgazil\LibDownload\Exceptions\FileExceptions\DownloadException;
+use Ilgazil\LibDownload\Driver\DriverInterface;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
@@ -15,14 +15,14 @@ class Download
     static public string $DONE = 'done';
     static public string $ERROR = 'error';
 
-    protected string $url;
-    protected string $target;
+    protected string $url = '';
+    protected string $target = '';
     protected array $headers = [];
     protected DriverInterface $driver;
-    protected string $fileName;
-    protected string $fileSize;
-    protected string $status;
-    protected DownloadProgressInterface $progress;
+    protected string $fileName = '';
+    protected string $fileSize = '';
+    protected string $status = '';
+    protected ?DownloadProgressInterface $progress = null;
 
     public function __construct()
     {
@@ -41,7 +41,7 @@ class Download
 
     public function getTarget(): string
     {
-        return $this->target;
+        return $this->target ?: $this->getFileName();
     }
 
     public function setTarget(string $target): void
@@ -121,6 +121,10 @@ class Download
 
         $this->status = $status;
         $this->progress?->onStatusChanged($status);
+
+        if ($status === self::$DONE) {
+            $this?->progress->finish();
+        }
     }
 
     public function setError(string $error): void

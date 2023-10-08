@@ -1,8 +1,8 @@
 <?php
 
-namespace Downloads\Exceptions\FileExceptions;
+namespace Ilgazil\LibDownload\Exceptions\FileExceptions;
 
-use Downloads\Exceptions\DownloadException;
+use Ilgazil\LibDownload\Exceptions\DownloadException;
 
 class DownloadCooldownException extends DownloadException
 {

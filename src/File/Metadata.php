@@ -1,6 +1,6 @@
 <?php
 
-namespace Downloads\File;
+namespace Ilgazil\LibDownload\File;
 
 class Metadata
 {

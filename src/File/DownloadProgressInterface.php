@@ -1,10 +1,11 @@
 <?php
 
-namespace Downloads\File;
+namespace Ilgazil\LibDownload\File;
 
 interface DownloadProgressInterface
 {
-    public function onProgress(int $expectedSize, int $downloadedSize);
-    public function onStatusChanged(string $error);
-    public function onError(string $error);
+    public function onProgress(int $expectedSize, int $downloadedSize): void;
+    public function onStatusChanged(string $status): void;
+    public function onError(string $error): void;
+    public function finish(): void;
 }

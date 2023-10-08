@@ -1,6 +1,6 @@
 <?php
 
-namespace Downloads\Output;
+namespace Ilgazil\LibDownload\Output;
 
 class ColoredStringWriter {
     private array $foregroundColors = [];

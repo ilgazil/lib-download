@@ -1,16 +1,14 @@
 <?php
 
-namespace Downloads\Driver;
+namespace Ilgazil\LibDownload\Driver;
 
-use Downloads\File\Download;
-use Downloads\File\Metadata;
+use Ilgazil\LibDownload\File\Download;
+use Ilgazil\LibDownload\File\Metadata;
 
-abstract class DriverInterface
+interface DriverInterface
 {
-    abstract function match(string $url): bool;
-    abstract function getName(): string;
-    abstract function authenticate(string $login, string $password): void;
-    abstract function unauthenticate(): void;
-    abstract function getMetadata(string $url): Metadata;
-    abstract function getDownload(string $url): Download;
+    function match(string $url): bool;
+    function getName(): string;
+    function getMetadata(string $url): Metadata;
+    function getDownload(string $url): Download;
 }

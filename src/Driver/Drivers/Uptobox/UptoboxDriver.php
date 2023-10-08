@@ -1,15 +1,16 @@
 <?php
 
-namespace Downloads\Driver\Drivers\Uptobox;
+namespace Ilgazil\LibDownload\Driver\Drivers\Uptobox;
 
 use anlutro\cURL\cURL;
-use Downloads\Exceptions\DriverExceptions\AuthException;
-use Downloads\Exceptions\DriverExceptions\DriverException;
-use Downloads\Exceptions\FileExceptions\DownloadCooldownException;
-use Downloads\Exceptions\FileExceptions\DownloadException;
-use Downloads\Driver\DriverInterface;
-use Downloads\File\Download;
-use Downloads\File\Metadata;
+use Ilgazil\LibDownload\Driver\Drivers\AbstractDriver;
+use Ilgazil\LibDownload\Exceptions\DriverExceptions\AuthException;
+use Ilgazil\LibDownload\Exceptions\DriverExceptions\DriverException;
+use Ilgazil\LibDownload\Exceptions\FileExceptions\DownloadCooldownException;
+use Ilgazil\LibDownload\Exceptions\FileExceptions\DownloadException;
+use Ilgazil\LibDownload\File\Download;
+use Ilgazil\LibDownload\File\Metadata;
+use Ilgazil\LibDownload\Session\Vectors\CookieVector;
 use PHPHtmlParser\Dom;
 use PHPHtmlParser\Exceptions\ChildNotFoundException;
 use PHPHtmlParser\Exceptions\CircularException;
@@ -18,7 +19,7 @@ use PHPHtmlParser\Exceptions\LogicalException;
 use PHPHtmlParser\Exceptions\NotLoadedException;
 use PHPHtmlParser\Exceptions\StrictException;
 
-class UptoboxDriver extends DriverInterface
+class UptoboxDriver extends AbstractDriver
 {
     static private string $ROOT_URL = 'https://uptobox.com/';
 
@@ -29,25 +30,6 @@ class UptoboxDriver extends DriverInterface
     public function getName(): string
     {
         return 'uptobox';
-    }
-
-    /**
-     * @throws AuthException
-     * @throws ChildNotFoundException
-     * @throws ContentLengthException
-     * @throws CircularException
-     * @throws LogicalException
-     * @throws NotLoadedException
-     * @throws StrictException
-     */
-    public function authenticate(string $login, string $password): void
-    {
-        $this->login($login, $password);
-    }
-
-    public function unauthenticate(): void
-    {
-        DriverModel::find($this->getName())?->delete();
     }
 
     /**
@@ -91,14 +73,14 @@ class UptoboxDriver extends DriverInterface
         }
 
         // Try to login with stored credentials if any. If it fails for any reason, we continue as anonymous
-        if ($parser->isAnonymous()) {
+        $credentials = $this->getSession()->getCredentials();
+        if ($parser->isAnonymous() && $credentials) {
             try {
-                $model = DriverModel::find($this->getName());
-
-                if ($model && $model->login) {
-                    $this->login($model->login, $model->password);
-                    $parser = new UpToBoxParser($this->getDom($url));
-                }
+                $this->login(
+                    $credentials->getLogin(),
+                    $credentials->getPassword(),
+                );
+                $parser = new UpToBoxParser($this->getDom($url));
             } catch (\Exception $e) {
             }
         }
@@ -124,26 +106,11 @@ class UptoboxDriver extends DriverInterface
 
         $download->setUrl($downloadLink);
 
-        if ($this->getCookie()) {
-            $download->setHeader('Cookie', $this->getCookie());
+        if ($this->getSession()->getVector()) {
+            $download->setHeader('Cookie', $this->getSession()->getVector()->getValue());
         }
 
         return $download;
-    }
-
-    protected function getCookie(): string
-    {
-        $model = DriverModel::find($this->getName());
-
-        if (!$model) {
-            return '';
-        }
-
-        if (preg_match('/(\S+=[^;]+)/', $model->cookie, $matches)) {
-            return $matches[1];
-        }
-
-        return '';
     }
 
     /**
@@ -175,12 +142,11 @@ class UptoboxDriver extends DriverInterface
             throw new AuthException('No cookie in response headers');
         }
 
-        $model = DriverModel::findOrNew($this->getName());
-        $model->name = $this->getName();
-        $model->login = $login;
-        $model->password = $password;
-        $model->cookie = $response->headers['set-cookie'];
-        $model->save();
+        $this->getSession()->setVector((new CookieVector())->parse($response->getHeader('set-cookie')));
+    }
+
+    protected function logout(): void {
+        $this->getSession()->setVector(null);
     }
 
     /**
@@ -209,8 +175,8 @@ class UptoboxDriver extends DriverInterface
 
         $request = $curl->newRequest('get', $url);
 
-        if ($this->getCookie()) {
-            $request->setHeader('Cookie', $this->getCookie());
+        if ($this->getSession()->getVector()) {
+            $request->setHeader('Cookie', $this->getSession()->getVector()->getValue());
         }
 
         $response = $request->send();

@@ -1,8 +1,8 @@
 <?php
 
-namespace Downloads\Driver;
+namespace Ilgazil\LibDownload\Driver;
 
-use Downloads\Exceptions\DriverExceptions\NoMatchingDriverException;
+use Ilgazil\LibDownload\Exceptions\DriverExceptions\NoMatchingDriverException;
 
 class DriverService
 {

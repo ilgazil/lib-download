@@ -1,6 +1,6 @@
 <?php
 
-namespace Downloads\Driver\Drivers\Uptobox;
+namespace Ilgazil\LibDownload\Driver\Drivers\Uptobox;
 
 use PHPHtmlParser\Dom;
 

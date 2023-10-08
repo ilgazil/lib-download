@@ -1,6 +1,6 @@
 <?php
 
-namespace Downloads\Exceptions;
+namespace Ilgazil\LibDownload\Exceptions;
 
 class DownloadException extends \Exception
 {

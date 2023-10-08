@@ -1,8 +1,8 @@
 <?php
 
-namespace Downloads\Exceptions\DriverExceptions;
+namespace Ilgazil\LibDownload\Exceptions\DriverExceptions;
 
-use Downloads\Exceptions\DownloadException;
+use Ilgazil\LibDownload\Exceptions\DownloadException;
 
 class DriverException extends DownloadException
 {

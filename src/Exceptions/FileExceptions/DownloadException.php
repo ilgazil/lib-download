@@ -1,8 +1,8 @@
 <?php
 
-namespace Downloads\Exceptions\FileExceptions;
+namespace Ilgazil\LibDownload\Exceptions\FileExceptions;
 
-use Downloads\Exceptions\DownloadException as BaseDownloadException;
+use Ilgazil\LibDownload\Exceptions\DownloadException as BaseDownloadException;
 
 class DownloadException extends BaseDownloadException
 {
