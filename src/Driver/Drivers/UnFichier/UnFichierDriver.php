@@ -122,6 +122,37 @@ class UnFichierDriver extends AbstractDriver
     }
 
     /**
+     * @throws AuthException
+     */
+    public function login(string $login, string $password): void
+    {
+        $curl = new cURL();
+
+        $response = $curl->post(self::$ROOT_URL . 'login.pl', [
+            'mail' => $login,
+            'pass' => $password,
+        ]);
+
+        try {
+            $dom = new Dom;
+            $dom->loadStr($response->body);
+            $error = $dom->find('.ct_warn')[0];
+        } catch (Exception $exception) {
+            throw new AuthException('Unable to parse login response');
+        }
+
+        if ($error) {
+            throw new AuthException('Error while authenticating on ' . $this->getName() . ': ' . trim($error->text));
+        }
+
+        if (empty($response->getHeader('set-cookie'))) {
+            throw new AuthException('No cookie in response headers');
+        }
+
+        $this->getSession()->setVector((new CookieVector())->parse($response->getHeader('set-cookie')));
+    }
+
+    /**
      * @throws DriverException
      */
     protected function request(string $method, string $url): Request
@@ -157,37 +188,6 @@ class UnFichierDriver extends AbstractDriver
         if ($cookie) {
             $this->getSession()->setVector((new CookieVector())->parse($cookie));
         }
-    }
-
-    /**
-     * @throws AuthException
-     */
-    protected function login(string $login, string $password): void
-    {
-        $curl = new cURL();
-
-        $response = $curl->post(self::$ROOT_URL . 'login.pl', [
-            'mail' => $login,
-            'pass' => $password,
-        ]);
-
-        try {
-            $dom = new Dom;
-            $dom->loadStr($response->body);
-            $error = $dom->find('.ct_warn')[0];
-        } catch (Exception $exception) {
-            throw new AuthException('Unable to parse login response');
-        }
-
-        if ($error) {
-            throw new AuthException('Error while authenticating on ' . $this->getName() . ': ' . trim($error->text));
-        }
-
-        if (empty($response->getHeader('set-cookie'))) {
-            throw new AuthException('No cookie in response headers');
-        }
-
-        $this->getSession()->setVector((new CookieVector())->parse($response->getHeader('set-cookie')));
     }
 
     /**
