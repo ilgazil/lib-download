@@ -6,22 +6,22 @@ use anlutro\cURL\cURL;
 use anlutro\cURL\Request;
 use anlutro\cURL\Response;
 use Exception;
-use Ilgazil\LibDownload\Driver\Drivers\AbstractDriver;
+use Ilgazil\LibDownload\Authenticators\HttpAuthenticator;
+use Ilgazil\LibDownload\Driver\DriverInterface;
 use Ilgazil\LibDownload\Exceptions\DriverExceptions\AuthException;
 use Ilgazil\LibDownload\Exceptions\DriverExceptions\DriverException;
 use Ilgazil\LibDownload\Exceptions\FileExceptions\DownloadCooldownException;
 use Ilgazil\LibDownload\Exceptions\FileExceptions\DownloadException;
 use Ilgazil\LibDownload\File\Download;
 use Ilgazil\LibDownload\File\Metadata;
-use Ilgazil\LibDownload\Session\Vectors\CookieVector;
 use PHPHtmlParser\Dom;
 use PHPHtmlParser\Options;
 
-class UnFichierDriver extends AbstractDriver
+class UnFichierDriver implements DriverInterface
 {
     static private string $ROOT_URL = 'https://1fichier.com/';
 
-    protected array $cookies = [];
+    protected HttpAuthenticator | null $authenticator = null;
 
     public function match(string $url): bool {
         return (bool) preg_match('/https?:\/\/1fichier\.\w{2,4}\/\??\w+/', $url);
@@ -75,20 +75,19 @@ class UnFichierDriver extends AbstractDriver
         $this->validateUrl($url);
 
         $download = $this->createDownload($url);
-        $credentials = $this->getSession()->getCredentials();
 
         $request = $this->request('get', $url);
         $response = $request->send();
 
         if ($response->statusCode === 302) {
             $download->setUrl($response->info['redirect_url']);
-        } elseif ($credentials) {
+        } elseif ($this->authenticator) {
             $this->login(
-                $credentials->getLogin(),
-                $credentials->getPassword(),
+                $this->authenticator->getLogin(),
+                $this->authenticator->getPassword(),
             );
 
-            $request->setHeader('Cookie', $this->getSession()->getVector()->getValue());
+            $request->setHeader('Cookie', $this->authenticator->getCookie());
             $response = $request->send();
 
             $download->setUrl($response->info['redirect_url']);
@@ -149,7 +148,14 @@ class UnFichierDriver extends AbstractDriver
             throw new AuthException('No cookie in response headers');
         }
 
-        $this->getSession()->setVector((new CookieVector())->parse($response->getHeader('set-cookie')));
+        $this->authenticator->setCookie($response->getHeader('set-cookie'));
+    }
+
+    function setAuthenticator(HttpAuthenticator $authenticator): UnFichierDriver
+    {
+        $this->authenticator = $authenticator;
+
+        return $this;
     }
 
     /**
@@ -161,8 +167,8 @@ class UnFichierDriver extends AbstractDriver
 
         $request = (new cURL())->newRequest($method, $url);
 
-        if ($this->getSession()->getVector()) {
-            $request->setHeader('Cookie', $this->getSession()->getVector()->getValue());
+        if ($this->authenticator?->getCookie()) {
+            $request->setHeader('Cookie', $this->authenticator->getCookie());
         }
 
         return $request;
@@ -186,7 +192,7 @@ class UnFichierDriver extends AbstractDriver
         }
 
         if ($cookie) {
-            $this->getSession()->setVector((new CookieVector())->parse($cookie));
+            $this->authenticator->setCookie($cookie);
         }
     }
 
