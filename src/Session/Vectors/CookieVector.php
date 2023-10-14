@@ -15,11 +15,9 @@ class CookieVector implements VectorInterface
         return $this;
     }
 
-    public function setValue(string $value): self
+    public function setValue(string $value): void
     {
         $this->value = $value;
-
-        return $this;
     }
 
     public function getValue(): string
