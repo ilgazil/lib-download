@@ -11,5 +11,4 @@ interface DriverInterface
     function getName(): string;
     function getMetadata(string $url): Metadata;
     function getDownload(string $url): Download;
-    function login(string $login, string $password): void;
 }

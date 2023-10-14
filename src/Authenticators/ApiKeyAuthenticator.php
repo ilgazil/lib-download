@@ -2,6 +2,8 @@
 
 namespace Ilgazil\LibDownload\Authenticators;
 
+use anlutro\cURL\Request;
+
 class ApiKeyAuthenticator
 {
     protected string $key;

@@ -3,12 +3,11 @@
 namespace Ilgazil\LibDownload\Driver\Drivers\UnFichier;
 
 use anlutro\cURL\cURL;
-use anlutro\cURL\Request;
 use anlutro\cURL\Response;
 use Exception;
+use Ilgazil\LibDownload\Authenticators\ApiKeyAuthenticator;
 use Ilgazil\LibDownload\Authenticators\HttpAuthenticator;
 use Ilgazil\LibDownload\Driver\DriverInterface;
-use Ilgazil\LibDownload\Exceptions\DriverExceptions\AuthException;
 use Ilgazil\LibDownload\Exceptions\DriverExceptions\DriverException;
 use Ilgazil\LibDownload\Exceptions\FileExceptions\DownloadCooldownException;
 use Ilgazil\LibDownload\Exceptions\FileExceptions\DownloadException;
@@ -19,9 +18,13 @@ use PHPHtmlParser\Options;
 
 class UnFichierDriver implements DriverInterface
 {
-    static private string $ROOT_URL = 'https://1fichier.com/';
+    protected ApiKeyAuthenticator | null $apiAuthenticator = null;
+    protected HttpAuthenticator $httpAuthenticator;
 
-    protected HttpAuthenticator | null $authenticator = null;
+    function __construct()
+    {
+        $this->httpAuthenticator = new HttpAuthenticator('', '');
+    }
 
     public function match(string $url): bool {
         return (bool) preg_match('/https?:\/\/1fichier\.\w{2,4}\/\??\w+/', $url);
@@ -37,21 +40,34 @@ class UnFichierDriver implements DriverInterface
      */
     public function getMetadata(string $url): Metadata
     {
-        $response = $this->request('get', $url)->send();
-
-        $this->updateSession($response);
+        $response = (new cURL())->get($url);
 
         $parser = $this->getParser($response->body);
 
         if (!$parser->getFileName()) {
-            $response = $this->request('get', $url)->send();
+            $cookie = $response->getHeader('set-cookie');
 
-            $this->updateSession($response);
-            $parser = $this->getParser($response->body);
+            if (!$cookie) {
+                preg_match_all(
+                    '/document\.cookie\s+=\s+"([^"]+)"/m',
+                    $response->body,
+                    $matches,
+                    PREG_SET_ORDER,
+                );
 
-            if (!$parser->getFileName()) {
-                throw new DriverException('Unable to retrieve metadata from ' . $url);
+                if (!empty($matches[0][1])) {
+                    $cookie = $matches[0][1];
+                }
             }
+
+            if (!$cookie) {
+                throw new DriverException('Unable to get HTTP cookie from 1fichier');
+            }
+
+            $this->httpAuthenticator->setCookie($cookie);
+
+            $response = (new cURL())->get($url);
+            $parser = $this->getParser($response->body);
         }
 
         $metadata = new Metadata();
@@ -68,7 +84,6 @@ class UnFichierDriver implements DriverInterface
      * @throws DriverException
      * @throws DownloadCooldownException
      * @throws DownloadException
-     * @throws AuthException
      */
     public function getDownload(string $url): Download
     {
@@ -76,23 +91,11 @@ class UnFichierDriver implements DriverInterface
 
         $download = $this->createDownload($url);
 
-        $request = $this->request('get', $url);
-        $response = $request->send();
-
-        if ($response->statusCode === 302) {
-            $download->setUrl($response->info['redirect_url']);
-        } elseif ($this->authenticator) {
-            $this->login(
-                $this->authenticator->getLogin(),
-                $this->authenticator->getPassword(),
-            );
-
-            $request->setHeader('Cookie', $this->authenticator->getCookie());
-            $response = $request->send();
-
-            $download->setUrl($response->info['redirect_url']);
+        if ($this->apiAuthenticator) {
+            $download->setUrl($this->getApiDownloadLink($url));
+            return $download;
         } else {
-            $parser = $this->getParser($response->body, (new Options())->setCleanupInput(false));
+            $parser = $this->getParser($this->get($url)->body, (new Options())->setCleanupInput(false));
 
             if ($parser->getDownloadCooldown()) {
                 throw new DownloadCooldownException($parser->getDownloadCooldown());
@@ -120,40 +123,9 @@ class UnFichierDriver implements DriverInterface
         return $download;
     }
 
-    /**
-     * @throws AuthException
-     */
-    public function login(string $login, string $password): void
+    function setAuthenticator(ApiKeyAuthenticator $authenticator): UnFichierDriver
     {
-        $curl = new cURL();
-
-        $response = $curl->post(self::$ROOT_URL . 'login.pl', [
-            'mail' => $login,
-            'pass' => $password,
-        ]);
-
-        try {
-            $dom = new Dom;
-            $dom->loadStr($response->body);
-            $error = $dom->find('.ct_warn')[0];
-        } catch (Exception $exception) {
-            throw new AuthException('Unable to parse login response');
-        }
-
-        if ($error) {
-            throw new AuthException('Error while authenticating on ' . $this->getName() . ': ' . trim($error->text));
-        }
-
-        if (empty($response->getHeader('set-cookie'))) {
-            throw new AuthException('No cookie in response headers');
-        }
-
-        $this->authenticator->setCookie($response->getHeader('set-cookie'));
-    }
-
-    function setAuthenticator(HttpAuthenticator $authenticator): UnFichierDriver
-    {
-        $this->authenticator = $authenticator;
+        $this->apiAuthenticator = $authenticator;
 
         return $this;
     }
@@ -161,39 +133,18 @@ class UnFichierDriver implements DriverInterface
     /**
      * @throws DriverException
      */
-    protected function request(string $method, string $url): Request
+    protected function get(string $url): Response
     {
         $this->validateUrl($url);
 
-        $request = (new cURL())->newRequest($method, $url);
+        $request = (new cURL())->newRequest('get', $url);
 
-        if ($this->authenticator?->getCookie()) {
-            $request->setHeader('Cookie', $this->authenticator->getCookie());
+        if ($this->apiAuthenticator?->getKey()) {
+            $request->setHeader('Authorization', 'Bearer ' . $this->apiAuthenticator->getKey());
+            $request->setHeader('Content-Type', 'application/json');
         }
 
-        return $request;
-    }
-
-    protected function updateSession(Response $response): void
-    {
-        $cookie = $response->getHeader('set-cookie');
-
-        if (!$cookie) {
-            preg_match_all(
-                '/document\.cookie\s+=\s+"([^"]+)"/m',
-                $response->body,
-                $matches,
-                PREG_SET_ORDER,
-            );
-
-            if (!empty($matches[0][1])) {
-                $cookie = $matches[0][1];
-            }
-        }
-
-        if ($cookie) {
-            $this->authenticator->setCookie($cookie);
-        }
+        return $request->send();
     }
 
     /**
@@ -240,5 +191,35 @@ class UnFichierDriver implements DriverInterface
         }
 
         return new UnFichierParser($dom);
+    }
+
+    /**
+     * @throws DownloadException
+     */
+    protected function getApiDownloadLink($url): string
+    {
+        $curl = curl_init('https://api.1fichier.com/v1/download/get_token.cgi');
+
+        $headers = ['Content-Type: application/json'];
+
+        if ($this->apiAuthenticator?->getKey()) {
+            $headers[] = 'Authorization: Bearer ' . $this->apiAuthenticator->getKey();
+        }
+
+        curl_setopt_array($curl, [
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode(['url' => $url]),
+            CURLOPT_RETURNTRANSFER => true,
+        ]);
+
+        $result = json_decode(curl_exec($curl));
+        curl_close($curl);
+
+        if (empty($result->url)) {
+            throw new DownloadException('Unable to retrieve download link: ' . $result->message);
+        }
+
+        return $result->url;
     }
 }
